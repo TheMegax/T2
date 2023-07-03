@@ -1,0 +1,14 @@
+/CMakeLists.txt
+/BAY_gen_paths_distance.txt
+/BAY_gen_paths_time.txt
+/BAY_raw.csv
+/dijsktra.exe
+/EnunciadoTarea2.docx
+/NY_gen_paths_distance.txt
+/NY_gen_paths_time.txt
+/NY_raw.csv
+/Reporte.txt
+/.vscode/
+/cmake-build-debug/
+/GMaps/
+/.idea/
