@@ -25,12 +25,12 @@ typedef struct gnode gnode;
 
 struct gnode // stores info needed for each graph node
 {
-  long long int id;
-  unsigned h1;
-  unsigned h2;
-  unsigned long long int key;
-  unsigned gmin;
-  unsigned long heapindex;
+    long long int id;
+    unsigned h1;
+    unsigned h2;
+    unsigned long long int key;
+    unsigned gmin;
+    unsigned long heapindex;
 };
 
 struct snode;
@@ -38,68 +38,67 @@ typedef struct snode snode;
 
 struct snode // BOA*'s search nodes
 {
-  int state;
-  unsigned g1;
-  unsigned g2;
-  double key;
-  unsigned long heapindex;
-  snode *searchtree;
+    int state;
+    unsigned g1;
+    unsigned g2;
+    double key;
+    unsigned long heapindex;
+    snode *searchtree;
 };
 
 
 typedef struct PathNode {
-  unsigned start_id;
-  unsigned stop_id;
-  struct PathNode* next;
+    unsigned start_id;
+    unsigned stop_id;
+    struct PathNode *next;
 } PathNode;
 
 // Function to create a new node
-PathNode* createPathNode(unsigned start_id, unsigned stop_id) {
-  PathNode* new_node = malloc(sizeof(PathNode));
-  if (!new_node) {
-    printf("Memory allocation failed\n");
-    exit(1);
-  }
-  new_node->start_id = start_id;
-  new_node->stop_id = stop_id;
-  new_node->next = NULL;
-  return new_node;
+PathNode *createPathNode(unsigned start_id, unsigned stop_id) {
+    PathNode *new_node = malloc(sizeof(PathNode));
+    if (!new_node) {
+        printf("Memory allocation failed\n");
+        exit(1);
+    }
+    new_node->start_id = start_id;
+    new_node->stop_id = stop_id;
+    new_node->next = NULL;
+    return new_node;
 }
 
 // Function to append a stop to the linked list
-void appendPath(PathNode** head, unsigned start_id, unsigned stop_id) {
-  PathNode* new_node = createPathNode(start_id, stop_id);
-  if (*head == NULL) {
-    *head = new_node;
-    return;
-  }
+void appendPath(PathNode **head, unsigned start_id, unsigned stop_id) {
+    PathNode *new_node = createPathNode(start_id, stop_id);
+    if (*head == NULL) {
+        *head = new_node;
+        return;
+    }
 
-  PathNode* temp = *head;
-  while (temp->next != NULL) {
-    temp = temp->next;
-  }
-  temp->next = new_node;
+    PathNode *temp = *head;
+    while (temp->next != NULL) {
+        temp = temp->next;
+    }
+    temp->next = new_node;
 }
 
-void freePaths(PathNode* head) {
-  PathNode* temp;
-  while (head != NULL) {
-    temp = head;
-    head = head->next;
-    free(temp);
-  }
+void freePaths(PathNode *head) {
+    PathNode *temp;
+    while (head != NULL) {
+        temp = head;
+        head = head->next;
+        free(temp);
+    }
 }
 
 
-gnode* graph_node;
+gnode *graph_node;
 unsigned num_gnodes;
 unsigned adjacent_table[MAXNODES][MAXNEIGH];
 unsigned pred_adjacent_table[MAXNODES][MAXNEIGH];
-unsigned stops[] = {0, 0, 0};
 unsigned goal, start;
-gnode* start_state;
-gnode* goal_state;
-snode* start_node;
+gnode *start_state;
+gnode *goal_state;
+snode *start_node;
 
 unsigned long long int stat_expansions = 0;
 unsigned long long int stat_generated = 0;
@@ -115,271 +114,292 @@ unsigned stat_created = 0;
 
 // --------------------------    Binary Heap for Dijkstra  -----------------------------------------
 #define HEAPSIZEDIJ 3000000
-gnode* heap_dij[HEAPSIZEDIJ];
+gnode *heap_dij[HEAPSIZEDIJ];
 unsigned long int heapsize_dij = 0;
 unsigned long int stat_percolations = 0;
 
 // ---------------------------------------------------------------
-void percolatedown_dij(int hole, gnode* tmp) {
-  int child;
+void percolatedown_dij(int hole, gnode *tmp) {
+    int child;
 
-  if (heapsize_dij != 0) {
-    for (; 2 * hole <= heapsize_dij; hole = child) {
-      child = 2 * hole;
-      if (child != heapsize_dij && heap_dij[child + 1]->key < heap_dij[child]->key)
-        ++child;
-      if (heap_dij[child]->key < tmp->key) {
-        heap_dij[hole] = heap_dij[child];
+    if (heapsize_dij != 0) {
+        for (; 2 * hole <= heapsize_dij; hole = child) {
+            child = 2 * hole;
+            if (child != heapsize_dij && heap_dij[child + 1]->key < heap_dij[child]->key)
+                ++child;
+            if (heap_dij[child]->key < tmp->key) {
+                heap_dij[hole] = heap_dij[child];
+                heap_dij[hole]->heapindex = hole;
+                ++stat_percolations;
+            } else
+                break;
+        } // end for
+        heap_dij[hole] = tmp;
         heap_dij[hole]->heapindex = hole;
-        ++stat_percolations;
-      }
-      else
-        break;
-    } // end for
-    heap_dij[hole] = tmp;
-    heap_dij[hole]->heapindex = hole;
-  }
-}
-/* --------------------------------------------------------------- */
-void percolateup_dij(int hole, gnode* tmp) {
-  if (heapsize_dij != 0) {
-    for (; hole > 1 && tmp->key < heap_dij[hole / 2]->key; hole /= 2) {
-      heap_dij[hole] = heap_dij[hole / 2];
-      heap_dij[hole]->heapindex = hole;
-      ++stat_percolations;
     }
-    heap_dij[hole] = tmp;
-    heap_dij[hole]->heapindex = hole;
-  }
 }
-/* --------------------------------------------------------------- */
-void percolateupordown_dij(int hole, gnode* tmp) {
-  if (heapsize_dij != 0) {
-    if (hole > 1 && heap_dij[hole / 2]->key > tmp->key)
-      percolateup_dij(hole, tmp);
-    else
-      percolatedown_dij(hole, tmp);
-  }
-}
-/* --------------------------------------------------------------- */
-void insertheap_dij(gnode* thiscell) {
 
-  if (thiscell->heapindex == 0)
-    percolateup_dij(++heapsize_dij, thiscell);
-  else
-    percolateupordown_dij(thiscell->heapindex, heap_dij[thiscell->heapindex]);
-}
 /* --------------------------------------------------------------- */
-void deleteheap_dij(gnode* thiscell) {
-  if (thiscell->heapindex != 0) {
-    percolateupordown_dij(thiscell->heapindex, heap_dij[heapsize_dij--]);
-    thiscell->heapindex = 0;
-  }
+void percolateup_dij(int hole, gnode *tmp) {
+    if (heapsize_dij != 0) {
+        for (; hole > 1 && tmp->key < heap_dij[hole / 2]->key; hole /= 2) {
+            heap_dij[hole] = heap_dij[hole / 2];
+            heap_dij[hole]->heapindex = hole;
+            ++stat_percolations;
+        }
+        heap_dij[hole] = tmp;
+        heap_dij[hole]->heapindex = hole;
+    }
 }
+
 /* --------------------------------------------------------------- */
-gnode* topheap_dij() {
-  if (heapsize_dij == 0)
-    return NULL;
-  return heap_dij[1];
+void percolateupordown_dij(int hole, gnode *tmp) {
+    if (heapsize_dij != 0) {
+        if (hole > 1 && heap_dij[hole / 2]->key > tmp->key)
+            percolateup_dij(hole, tmp);
+        else
+            percolatedown_dij(hole, tmp);
+    }
 }
+
+/* --------------------------------------------------------------- */
+void insertheap_dij(gnode *thiscell) {
+    if (thiscell->heapindex == 0)
+        percolateup_dij(++heapsize_dij, thiscell);
+    else
+        percolateupordown_dij(thiscell->heapindex, heap_dij[thiscell->heapindex]);
+}
+
+/* --------------------------------------------------------------- */
+void deleteheap_dij(gnode *thiscell) {
+    if (thiscell->heapindex != 0) {
+        percolateupordown_dij(thiscell->heapindex, heap_dij[heapsize_dij--]);
+        thiscell->heapindex = 0;
+    }
+}
+
+/* --------------------------------------------------------------- */
+gnode *topheap_dij() {
+    if (heapsize_dij == 0)
+        return NULL;
+    return heap_dij[1];
+}
+
 /* --------------------------------------------------------------- */
 void emptyheap_dij() {
-  int i;
+    int i;
 
-  for (i = 1; i <= heapsize_dij; ++i)
-    heap_dij[i]->heapindex = 0;
-  heapsize_dij = 0;
+    for (i = 1; i <= heapsize_dij; ++i)
+        heap_dij[i]->heapindex = 0;
+    heapsize_dij = 0;
 }
 
 /* --------------------------------------------------------------- */
-gnode* popheap_dij() {
-  gnode* thiscell;
+gnode *popheap_dij() {
+    gnode *thiscell;
 
-  if (heapsize_dij == 0)
-    return NULL;
-  thiscell = heap_dij[1];
-  thiscell->heapindex = 0;
-  percolatedown_dij(1, heap_dij[heapsize_dij--]);
-  return thiscell;
+    if (heapsize_dij == 0)
+        return NULL;
+    thiscell = heap_dij[1];
+    thiscell->heapindex = 0;
+    percolatedown_dij(1, heap_dij[heapsize_dij--]);
+    return thiscell;
 }
 
 int sizeheap_dij() {
-  return heapsize_dij;
+    return heapsize_dij;
 }
 
-gnode* posheap_dij(int i) {
-  return heap_dij[i];
+gnode *posheap_dij(int i) {
+    return heap_dij[i];
 }
 
 // --------------------------    Binary Heap for BOA*  -----------------------------------------
 #define HEAPSIZE 40000000
-snode* heap[HEAPSIZE];
+snode *heap[HEAPSIZE];
 unsigned long int heapsize = 0;
 
 // ---------------------------------------------------------------
-void percolatedown(int hole, snode* tmp) {
-  int child;
+void percolatedown(int hole, snode *tmp) {
+    int child;
 
-  if (heapsize != 0) {
-    for (; 2 * hole <= heapsize; hole = child) {
-      child = 2 * hole;
-      if (child != heapsize && heap[child + 1]->key < heap[child]->key)
-        ++child;
-      if (heap[child]->key < tmp->key) {
-        heap[hole] = heap[child];
+    if (heapsize != 0) {
+        for (; 2 * hole <= heapsize; hole = child) {
+            child = 2 * hole;
+            if (child != heapsize && heap[child + 1]->key < heap[child]->key)
+                ++child;
+            if (heap[child]->key < tmp->key) {
+                heap[hole] = heap[child];
+                heap[hole]->heapindex = hole;
+                ++stat_percolations;
+            } else
+                break;
+        } // end for
+        heap[hole] = tmp;
         heap[hole]->heapindex = hole;
-        ++stat_percolations;
-      }
-      else
-        break;
-    } // end for
-    heap[hole] = tmp;
-    heap[hole]->heapindex = hole;
-  }
-}
-/* --------------------------------------------------------------- */
-void percolateup(int hole, snode* tmp) {
-  if (heapsize != 0) {
-    for (; hole > 1 && tmp->key < heap[hole / 2]->key; hole /= 2) {
-      heap[hole] = heap[hole / 2];
-      heap[hole]->heapindex = hole;
-      ++stat_percolations;
     }
-    heap[hole] = tmp;
-    heap[hole]->heapindex = hole;
-  }
 }
+
 /* --------------------------------------------------------------- */
-void percolateupordown(int hole, snode* tmp) {
-  if (heapsize != 0) {
-    if (hole > 1 && heap[hole / 2]->key > tmp->key)
-      percolateup(hole, tmp);
+void percolateup(int hole, snode *tmp) {
+    if (heapsize != 0) {
+        for (; hole > 1 && tmp->key < heap[hole / 2]->key; hole /= 2) {
+            heap[hole] = heap[hole / 2];
+            heap[hole]->heapindex = hole;
+            ++stat_percolations;
+        }
+        heap[hole] = tmp;
+        heap[hole]->heapindex = hole;
+    }
+}
+
+/* --------------------------------------------------------------- */
+void percolateupordown(int hole, snode *tmp) {
+    if (heapsize != 0) {
+        if (hole > 1 && heap[hole / 2]->key > tmp->key)
+            percolateup(hole, tmp);
+        else
+            percolatedown(hole, tmp);
+    }
+}
+
+/* --------------------------------------------------------------- */
+void insertheap(snode *thiscell) {
+    if (thiscell->heapindex == 0)
+        percolateup(++heapsize, thiscell);
     else
-      percolatedown(hole, tmp);
-  }
+        percolateupordown(thiscell->heapindex, heap[thiscell->heapindex]);
 }
+
 /* --------------------------------------------------------------- */
-void insertheap(snode* thiscell) {
-  if (thiscell->heapindex == 0)
-    percolateup(++heapsize, thiscell);
-  else
-    percolateupordown(thiscell->heapindex, heap[thiscell->heapindex]);
+void deleteheap(snode *thiscell) {
+    if (thiscell->heapindex != 0) {
+        percolateupordown(thiscell->heapindex, heap[heapsize--]);
+        thiscell->heapindex = 0;
+    }
 }
+
 /* --------------------------------------------------------------- */
-void deleteheap(snode* thiscell) {
-  if (thiscell->heapindex != 0) {
-    percolateupordown(thiscell->heapindex, heap[heapsize--]);
-    thiscell->heapindex = 0;
-  }
+snode *topheap() {
+    if (heapsize == 0)
+        return NULL;
+    return heap[1];
 }
-/* --------------------------------------------------------------- */
-snode* topheap() {
-  if (heapsize == 0)
-    return NULL;
-  return heap[1];
-}
+
 /* --------------------------------------------------------------- */
 void emptyheap() {
-  int i;
+    int i;
 
-  for (i = 1; i <= heapsize; ++i)
-    heap[i]->heapindex = 0;
-  heapsize = 0;
+    for (i = 1; i <= heapsize; ++i)
+        heap[i]->heapindex = 0;
+    heapsize = 0;
 }
 
 /* --------------------------------------------------------------- */
-snode* popheap() {
-  snode* thiscell;
+snode *popheap() {
+    snode *thiscell;
 
-  if (heapsize == 0)
-    return NULL;
-  thiscell = heap[1];
-  thiscell->heapindex = 0;
-  percolatedown(1, heap[heapsize--]);
-  return thiscell;
+    if (heapsize == 0)
+        return NULL;
+    thiscell = heap[1];
+    thiscell->heapindex = 0;
+    percolatedown(1, heap[heapsize--]);
+    return thiscell;
 }
 
 int sizeheap() {
-  return heapsize;
+    return heapsize;
 }
 
 long int opensize() {
-  return heapsize_dij;
+    return heapsize_dij;
 }
-snode* posheap(int i) {
-  return heap[i];
+
+snode *posheap(int i) {
+    return heap[i];
 }
+
 // --------------------------    Binary Heap end --------------------------------------------
-
-
 
 
 //********************************************** Reading the file ******************************************************
 
-void read_adjacent_table(const char* filename) {
-	FILE* f;
-	int i, ori, dest, dist, t;
-	f = fopen(filename, "r");
-	int num_arcs = 0;
-	if (f == NULL) 	{
-		printf("Cannot open file %s.\n", filename);
-		exit(1);
-	}
-	fscanf(f, "%d %d", &num_gnodes, &num_arcs);
-	fscanf(f, "\n");
-//	printf("%d %d", num_gnodes, num_arcs);
-	for (i = 0; i < num_gnodes; i++)
-		adjacent_table[i][0] = 0;
+void read_adjacent_table(const char *filename) {
+    FILE *f;
+    int i, ori, dest, dist, t;
+    f = fopen(filename, "r");
+    int num_arcs = 0;
+    if (f == NULL) {
+        printf("Cannot open file %s.\n", filename);
+        exit(1);
+    }
+    fscanf(f, "%d %d", &num_gnodes, &num_arcs);
+    fscanf(f, "\n");
+    //	printf("%d %d", num_gnodes, num_arcs);
+    for (i = 0; i < num_gnodes; i++)
+        adjacent_table[i][0] = 0;
 
-	for (i = 0; i < num_arcs; i++) {
-		fscanf(f, "%d %d %d %d\n", &ori, &dest, &dist, &t);
-	//	printf("%d %d %d %d\n", ori, dest, dist, t);
-		adjacent_table[ori - 1][0]++;
-		adjacent_table[ori - 1][adjacent_table[ori - 1][0] * 3 - 2] = dest - 1;
-		adjacent_table[ori - 1][adjacent_table[ori - 1][0] * 3 - 1] = dist;
-		adjacent_table[ori - 1][adjacent_table[ori - 1][0] * 3] = t;
+    for (i = 0; i < num_arcs; i++) {
+        fscanf(f, "%d %d %d %d\n", &ori, &dest, &dist, &t);
+        //	printf("%d %d %d %d\n", ori, dest, dist, t);
+        adjacent_table[ori - 1][0]++;
+        adjacent_table[ori - 1][adjacent_table[ori - 1][0] * 3 - 2] = dest - 1;
+        adjacent_table[ori - 1][adjacent_table[ori - 1][0] * 3 - 1] = dist;
+        adjacent_table[ori - 1][adjacent_table[ori - 1][0] * 3] = t;
 
-		pred_adjacent_table[dest - 1][0]++;
-		pred_adjacent_table[dest - 1][pred_adjacent_table[dest - 1][0] * 3 - 2] = ori - 1;
-		pred_adjacent_table[dest - 1][pred_adjacent_table[dest - 1][0] * 3 - 1] = dist;
-		pred_adjacent_table[dest - 1][pred_adjacent_table[dest - 1][0] * 3] = t;
-	}
-	fclose(f);
+        pred_adjacent_table[dest - 1][0]++;
+        pred_adjacent_table[dest - 1][pred_adjacent_table[dest - 1][0] * 3 - 2] = ori - 1;
+        pred_adjacent_table[dest - 1][pred_adjacent_table[dest - 1][0] * 3 - 1] = dist;
+        pred_adjacent_table[dest - 1][pred_adjacent_table[dest - 1][0] * 3] = t;
+    }
+    fclose(f);
 }
 
 void new_graph() {
-	int y;
-	if (graph_node == NULL) {
-		graph_node = (gnode*) calloc(num_gnodes, sizeof(gnode));
-		for (y = 0; y < num_gnodes; ++y) 		{
-			graph_node[y].id = y;
-			graph_node[y].gmin = LARGE;
-			graph_node[y].h1 = LARGE;
-			graph_node[y].h2 = LARGE;
-		}
-	}
+    if (graph_node == NULL) {
+        graph_node = (gnode *) calloc(num_gnodes, sizeof(gnode));
+    }
+    for (int y = 0; y < num_gnodes; ++y) {
+        graph_node[y].id = y;
+        graph_node[y].gmin = LARGE;
+        graph_node[y].h1 = LARGE;
+        graph_node[y].h2 = LARGE;
+    }
 }
 
 
 //********************************************** BOA* ******************************************************
 
 void initialize_parameters() {
+    new_graph();
+
     start_state = &graph_node[start];
     goal_state = &graph_node[goal];
     stat_percolations = 0;
+    stat_created = 0;
+    stat_expansions = 0;
+    stat_generated = 0;
+    stat_pruned = 0;
+    heapsize_dij = 0;
+    heapsize = 0;
+    minf_solution = LARGE;
+
+    for (int i = 0; i < num_gnodes; ++i) {
+        graph_node[i].gmin = LARGE;  // Reset to a large value (infinity).
+    }
 }
 
 int backward_dijkstra(int dim) {
     int i;
-	for (i = 0; i < num_gnodes; ++i)
+    for (i = 0; i < num_gnodes; ++i)
         graph_node[i].key = LARGE;
     emptyheap_dij();
     goal_state->key = 0;
     insertheap_dij(goal_state);
 
     while (topheap_dij() != NULL) {
-        gnode* n;
-        gnode* pred;
+        gnode *n;
+        gnode *pred;
         short d;
         n = popheap_dij();
         if (dim == 1)
@@ -399,17 +419,14 @@ int backward_dijkstra(int dim) {
     return 1;
 }
 
-snode* new_node() {
-    snode* state = (snode*)malloc(sizeof(snode));
+snode *new_node() {
+    snode *state = (snode *) malloc(sizeof(snode));
     state->heapindex = 0;
     return state;
 }
 
 int boastar() {
-	FILE* f;
-	f = fopen("salida344.csv", "w");
-
-    snode* recycled_nodes[MAX_RECYCLE];
+    snode *recycled_nodes[MAX_RECYCLE];
     int next_recycled = 0;
     nsolutions = 0;
     stat_pruned = 0;
@@ -426,7 +443,7 @@ int boastar() {
 
     stat_expansions = 0;
     while (topheap() != NULL) {
-        snode* n = popheap(); //best node in open
+        snode *n = popheap(); //best node in open
         short d;
 
         if (n->g2 >= graph_node[n->state].gmin || n->g2 + graph_node[n->state].h2 >= minf_solution) {
@@ -439,15 +456,13 @@ int boastar() {
 
         graph_node[n->state].gmin = n->g2;
 
-
         if (n->state == goal) {
-            printf("GOAL [%d,%d] nsolutions:%d expanded:%llu generated:%llu heapsize:%d pruned:%d\n", n->g1, n->g2, nsolutions, stat_expansions, stat_generated, sizeheap(), stat_pruned);
-            //fprintf(f,"%d;%d\n",n->g1, n->g2);
-			//getchar();
-
-			solutions[nsolutions][0] = n->g1;
+            solutions[nsolutions][0] = n->g1;
             solutions[nsolutions][1] = n->g2;
             nsolutions++;
+            printf("GOAL [%d,%d] nsolutions:%d expanded:%llu generated:%llu heapsize:%d pruned:%d\n", n->g1, n->g2,
+                nsolutions, stat_expansions, stat_generated, sizeheap(), stat_pruned);
+            //getchar();
             if (nsolutions > MAX_SOLUTIONS) {
                 printf("Maximum number of solutions reached, increase MAX_SOLUTIONS!\n");
                 exit(1);
@@ -460,7 +475,7 @@ int boastar() {
         ++stat_expansions;
 
         for (d = 1; d < adjacent_table[n->state][0] * 3; d += 3) {
-            snode* succ;
+            snode *succ;
             double newk1, newk2, newkey;
             unsigned nsucc = adjacent_table[n->state][d];
             unsigned cost1 = adjacent_table[n->state][d + 1];
@@ -474,18 +489,16 @@ int boastar() {
             if (newg2 >= graph_node[nsucc].gmin || newg2 + h2 >= minf_solution)
                 continue;
 
-			//if (nsucc == 153532-1 || nsucc == 108746-1)
-				//printf("No se poda %d in %d expasion (%d,%d)\n",nsucc+1,stat_expansions,newg1+h1,newg2+h2);
-
-
+            //if (nsucc == 153532-1 || nsucc == 108746-1)
+            //printf("No se poda %d in %d expasion (%d,%d)\n",nsucc+1,stat_expansions,newg1+h1,newg2+h2);
 
             newk1 = newg1 + h1;
             newk2 = newg2 + h2;
 
-            if (next_recycled > 0) { //to reuse pruned nodes in memory
+            if (next_recycled > 0) {
+                //to reuse pruned nodes in memory
                 succ = recycled_nodes[--next_recycled];
-            }
-            else {
+            } else {
                 succ = new_node();
                 ++stat_created;
             }
@@ -493,7 +506,7 @@ int boastar() {
             succ->state = nsucc;
             stat_generated++;
 
-            newkey = newk1 * (double)BASE + newk2;
+            newkey = newk1 * (double) BASE + newk2;
             succ->searchtree = n;
             succ->g1 = newg1;
             succ->g2 = newg2;
@@ -502,11 +515,11 @@ int boastar() {
         }
     }
 
-   // return nsolutions > 0;
+    // return nsolutions > 0;
 }
 
 /* ------------------------------------------------------------------------------*/
-void call_boastar() {
+void call_boastar(FILE *f) {
     float runtime;
     struct timeval tstart, tend;
     unsigned long long min_cost;
@@ -523,51 +536,76 @@ void call_boastar() {
     //Dijkstra h2
     if (backward_dijkstra(2))
         min_time = start_state->h2;
-        
-    
-	//BOA*
+
+
+    //BOA*
     boastar();
 
-		
     gettimeofday(&tend, NULL);
     runtime = 1.0 * (tend.tv_sec - tstart.tv_sec) + 1.0 * (tend.tv_usec - tstart.tv_usec) / 1000000.0;
-    //		printf("nsolutions:%d Runtime(ms):%f Generated: %llu statexpanded1:%llu\n", nsolutions, time_astar_first1*1000, stat_generated, stat_expansions);
+    printf("Start State;Goal State;nsolutions;Runtime(ms);Generated;Expanded;Created;Percolations\n");
     printf("%lld;%lld;%d;%f;%llu;%llu;%lu;%llu\n",
-        start_state->id + 1,
-        goal_state->id + 1,
-        nsolutions,
-        runtime * 1000,
-        stat_generated,
-        stat_expansions,
-        stat_created,
-        stat_percolations);
+           start_state->id + 1,
+           goal_state->id + 1,
+           nsolutions,
+           runtime * 1000,
+           stat_generated,
+           stat_expansions,
+           stat_created,
+           stat_percolations);
+
+    fprintf(f,"%lld;%lld;%d;%f;%llu;%llu;%lu;%llu\n",
+           start_state->id + 1,
+           goal_state->id + 1,
+           nsolutions,
+           runtime * 1000,
+           stat_generated,
+           stat_expansions,
+           stat_created,
+           stat_percolations
+        );
 }
 
-void findPathWithStops(const PathNode* path) {
-  const PathNode* current = path;
+void findPathWithStops(const PathNode *path, FILE *f) {
+    const PathNode *current = path;
 
-  while (current != NULL) {
-    const unsigned current_start = current->start_id;
-    const unsigned current_goal = current->stop_id;
+    fprintf(f, "Start State;Goal State;nsolutions;Runtime(ms);Generated;Expanded;Created;Percolations\n");
+    while (current != NULL) {
+        const unsigned current_start = current->start_id;
+        const unsigned current_goal = current->stop_id;
 
-    start = current_start;
-    goal = current_goal;
+        start = current_start;
+        goal = current_goal;
 
-    printf("-----\n");
-    call_boastar();  // Use existing pathfinding between current_start and current_goal
-    current = current->next;
-  }
+        printf("-----\n");
+        call_boastar(f); // Use existing pathfinding between current_start and current_goal
+        current = current->next;
+    }
 }
 
 
 /*----------------------------------------------------------------------------------*/
 int main() {
-	read_adjacent_table("NY-road-d.txt");
-	new_graph();
+    read_adjacent_table("NY-road-d.txt");
+    FILE *f = fopen("salida344.csv", "w");
 
-  PathNode* path = createPathNode(2995, 2515);
-  appendPath(&path, 2515, 1443);
+    PathNode *path = NULL;
+    struct timeval tstart, tend;
+    gettimeofday(&tstart, NULL);
 
-  findPathWithStops(path);
+    FILE *file = fopen("NY-queries-2p.txt", "r");
+    int p1, p2, p3, p4;
+    while (fscanf(file, "%d %d %d %d", &p1, &p2, &p3, &p4) == 4) {
+        if (path) {
+            freePaths(path);
+        }
+        printf("%d, %d, %d, %d\n", p1, p2, p3, p4);
+        path = createPathNode(p1, p2);
+        appendPath(&path, p2, p3);
+        appendPath(&path, p3, p4);
+        findPathWithStops(path, f);
+    }
+    gettimeofday(&tend, NULL);
+    float runtime = 1.0 * (tend.tv_sec - tstart.tv_sec) + 1.0 * (tend.tv_usec - tstart.tv_usec) / 1000000.0;
+    printf("Total runtime (seg): %f\n", runtime);
 }
-
